@@ -193,22 +193,24 @@ fun ExtractedApkItem(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Install
-                FilledTonalIconButton(
-                    onClick = onInstallClick,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    modifier = Modifier
-                        .size(38.dp)
-                        .testTag("btn_install_${apk.fileName}")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.InstallMobile,
-                        contentDescription = "Instalar APK",
-                        modifier = Modifier.size(18.dp)
-                    )
+                // Um ZIP com splits precisa de um instalador compatível com pacotes divididos.
+                if (!apk.fileName.endsWith(".zip", ignoreCase = true)) {
+                    FilledTonalIconButton(
+                        onClick = onInstallClick,
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        modifier = Modifier
+                            .size(38.dp)
+                            .testTag("btn_install_${apk.fileName}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.InstallMobile,
+                            contentDescription = "Instalar APK",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }

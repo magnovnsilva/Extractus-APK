@@ -20,6 +20,9 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.UUID
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
 
 class AppManagerRepository(private val context: Context) {
 
@@ -123,37 +126,57 @@ class AppManagerRepository(private val context: Context) {
         onProgress: ((progress: Float) -> Unit)? = null
     ): Result<ExtractedApk> = withContext(Dispatchers.IO) {
         try {
-            val sourceFile = File(app.sourceDir)
-            if (!sourceFile.exists()) {
-                return@withContext Result.failure(Exception("Arquivo fonte APK não encontrado: ${app.sourceDir}"))
+            // sourceDir é o APK base; splitSourceDirs contém as partes adicionais.
+            val sourceFiles = listOf(File(app.sourceDir)) + app.splitSourceDirs.map(::File)
+            val missingFile = sourceFiles.firstOrNull { !it.isFile }
+            if (missingFile != null) {
+                return@withContext Result.failure(
+                    Exception("Arquivo APK não encontrado: ${missingFile.absolutePath}")
+                )
             }
 
+            val isSplitApk = app.splitSourceDirs.isNotEmpty()
             val storageDir = getApkStorageDir()
             val sanitizedName = app.appName
                 .replace("[^a-zA-Z0-9._-]".toRegex(), "_")
                 .trim('_')
                 .ifEmpty { app.packageName.replace(".", "_") }
-
-            val fileName = "${sanitizedName}_v${app.versionName}.apk"
+            val extension = if (isSplitApk) "zip" else "apk"
+            val fileName = "${sanitizedName}_v${app.versionName}.$extension"
             val destFile = File(storageDir, fileName)
 
-            val totalBytes = sourceFile.length()
+            val totalBytes = sourceFiles.sumOf { it.length() }.coerceAtLeast(1L)
             var bytesCopied = 0L
+            val buffer = ByteArray(64 * 1024)
 
-            FileInputStream(sourceFile).use { input ->
-                FileOutputStream(destFile).use { output ->
-                    val buffer = ByteArray(64 * 1024)
-                    var read: Int
-                    while (input.read(buffer).also { read = it } != -1) {
-                        output.write(buffer, 0, read)
-                        bytesCopied += read
-                        if (totalBytes > 0) {
-                            onProgress?.invoke(bytesCopied.toFloat() / totalBytes.toFloat())
-                        }
-                    }
-                    output.flush()
+            fun copyWithProgress(input: java.io.InputStream, output: java.io.OutputStream) {
+                var read: Int
+                while (input.read(buffer).also { read = it } != -1) {
+                    output.write(buffer, 0, read)
+                    bytesCopied += read
+                    onProgress?.invoke((bytesCopied.toFloat() / totalBytes).coerceIn(0f, 1f))
                 }
             }
+
+            if (isSplitApk) {
+                ZipOutputStream(FileOutputStream(destFile)).use { zip ->
+                    sourceFiles.forEachIndexed { index, sourceFile ->
+                        val entryName = if (index == 0) "base.apk" else "split_${index}.apk"
+                        zip.putNextEntry(ZipEntry(entryName))
+                        FileInputStream(sourceFile).use { input ->
+                            copyWithProgress(input, zip)
+                        }
+                        zip.closeEntry()
+                    }
+                }
+            } else {
+                FileInputStream(sourceFiles.first()).use { input ->
+                    FileOutputStream(destFile).use { output ->
+                        copyWithProgress(input, output)
+                    }
+                }
+            }
+            onProgress?.invoke(1f)
 
             val extracted = ExtractedApk(
                 id = UUID.randomUUID().toString(),
@@ -174,29 +197,56 @@ class AppManagerRepository(private val context: Context) {
 
     suspend fun loadExtractedApks(): List<ExtractedApk> = withContext(Dispatchers.IO) {
         val dir = getApkStorageDir()
-        val files = dir.listFiles { file -> file.extension.equals("apk", ignoreCase = true) } ?: emptyArray()
+        val files = dir.listFiles { file ->
+            file.extension.equals("apk", ignoreCase = true) ||
+                file.extension.equals("zip", ignoreCase = true)
+        } ?: emptyArray()
 
         files.map { file ->
             var appName = file.nameWithoutExtension
             var pkgName = ""
             var verName = ""
+            var metadataApk: File? = file
+            var temporaryBaseApk: File? = null
+
+            // Para um ZIP de splits, o Android PackageManager precisa ler o base.apk.
+            if (file.extension.equals("zip", ignoreCase = true)) {
+                try {
+                    val temp = File.createTempFile("extractus-base-", ".apk", context.cacheDir)
+                    temporaryBaseApk = temp
+                    ZipFile(file).use { archive ->
+                        val baseEntry = archive.getEntry("base.apk")
+                            ?: throw IllegalArgumentException("ZIP sem base.apk")
+                        archive.getInputStream(baseEntry).use { input ->
+                            FileOutputStream(temp).use { output -> input.copyTo(output) }
+                        }
+                    }
+                    metadataApk = temp
+                } catch (_: Exception) {
+                    temporaryBaseApk?.delete()
+                    metadataApk = null
+                }
+            }
 
             try {
-                val archiveInfo = packageManager.getPackageArchiveInfo(file.absolutePath, 0)
-                if (archiveInfo != null) {
-                    pkgName = archiveInfo.packageName ?: ""
-                    verName = archiveInfo.versionName ?: ""
-                    val appInfo = archiveInfo.applicationInfo
-                    if (appInfo != null) {
-                        appInfo.sourceDir = file.absolutePath
-                        appInfo.publicSourceDir = file.absolutePath
-                        val label = appInfo.loadLabel(packageManager).toString()
-                        if (label.isNotEmpty()) {
-                            appName = label
+                metadataApk?.let { apkForMetadata ->
+                    val archiveInfo = packageManager.getPackageArchiveInfo(apkForMetadata.absolutePath, 0)
+                    if (archiveInfo != null) {
+                        pkgName = archiveInfo.packageName ?: ""
+                        verName = archiveInfo.versionName ?: ""
+                        val appInfo = archiveInfo.applicationInfo
+                        if (appInfo != null) {
+                            appInfo.sourceDir = apkForMetadata.absolutePath
+                            appInfo.publicSourceDir = apkForMetadata.absolutePath
+                            val label = appInfo.loadLabel(packageManager).toString()
+                            if (label.isNotEmpty()) appName = label
                         }
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            } finally {
+                temporaryBaseApk?.delete()
+            }
 
             ExtractedApk(
                 id = file.name,
@@ -228,7 +278,11 @@ class AppManagerRepository(private val context: Context) {
             val uri: Uri = FileProvider.getUriForFile(context, authority, file)
 
             return Intent(Intent.ACTION_SEND).apply {
-                type = "application/vnd.android.package-archive"
+                type = if (file.extension.equals("zip", ignoreCase = true)) {
+                    "application/zip"
+                } else {
+                    "application/vnd.android.package-archive"
+                }
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(Intent.EXTRA_SUBJECT, "Compartilhar APK: ${file.name}")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -240,7 +294,7 @@ class AppManagerRepository(private val context: Context) {
             }
 
             return Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                type = "application/vnd.android.package-archive"
+                type = "*/*"
                 putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
                 putExtra(Intent.EXTRA_SUBJECT, "Compartilhar ${apkFiles.size} APKs")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

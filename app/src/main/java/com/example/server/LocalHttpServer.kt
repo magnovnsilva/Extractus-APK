@@ -132,8 +132,13 @@ class LocalHttpServer(private val context: Context) {
 
     private fun sendApkFile(output: OutputStream, file: File, fileName: String) {
         val safeFileName = URLEncoder.encode(fileName, "UTF-8").replace("+", "%20")
+        val contentType = if (file.extension.equals("zip", ignoreCase = true)) {
+            "application/zip"
+        } else {
+            "application/vnd.android.package-archive"
+        }
         val headers = "HTTP/1.1 200 OK\r\n" +
-                "Content-Type: application/vnd.android.package-archive\r\n" +
+                "Content-Type: $contentType\r\n" +
                 "Content-Disposition: attachment; filename=\"$safeFileName\"; filename*=UTF-8''$safeFileName\r\n" +
                 "Content-Length: ${file.length()}\r\n" +
                 "Accept-Ranges: bytes\r\n" +
