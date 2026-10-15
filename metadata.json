@@ -1,0 +1,6 @@
+{
+  "name": "Extractus Apk",
+  "description": "Extraia e compartilhe arquivos APK do celular diretamente com outros usuários de forma rápida e segura.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

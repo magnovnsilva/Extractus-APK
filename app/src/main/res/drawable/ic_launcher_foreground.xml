@@ -1,0 +1,25 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Android Head outline at top -->
+    <path
+        android:fillColor="#80D8FF"
+        android:pathData="M44.5,33.5 L41,28 C40.5,27.2 41.2,26.5 42,27 L45.8,29.5 C48.3,28.5 51.1,28 54,28 C56.9,28 59.7,28.5 62.2,29.5 L66,27 C66.8,26.5 67.5,27.2 67,28 L63.5,33.5 C68.5,36.5 72,41.8 72.8,48 L35.2,48 C36,41.8 39.5,36.5 44.5,33.5 Z" />
+    <path
+        android:fillColor="#0D47A1"
+        android:pathData="M46.5,41 A2,2 0 1,0 46.5,41.01 Z M61.5,41 A2,2 0 1,0 61.5,41.01 Z" />
+    <!-- APK Package Box -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,51 C34,50 35,49 36,49 L72,49 C73,49 74,50 74,51 L74,75 C74,77.2 72.2,79 70,79 L38,79 C35.8,79 34,77.2 34,75 Z" />
+    <!-- Share Arrow / Export badge in center -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M54,55 L63,64 L57,64 L57,73 L51,73 L51,64 L45,64 Z" />
+    <!-- Connected share dots -->
+    <path
+        android:fillColor="#80D8FF"
+        android:pathData="M31,45 A4,4 0 1,0 31,45.01 Z M77,45 A4,4 0 1,0 77,45.01 Z" />
+</vector>

@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">Extractus Apk</string>
+    <string name="tab_all">Todos</string>
+    <string name="tab_user">Usuário</string>
+    <string name="tab_system">Sistema</string>
+    <string name="tab_extracted">Extraídos</string>
+    <string name="search_hint">Pesquisar app ou pacote…</string>
+    <string name="btn_extract">Extrair</string>
+    <string name="btn_share">Compartilhar</string>
+    <string name="btn_share_wifi">Partilhar via Wi-Fi</string>
+    <string name="btn_details">Detalhes</string>
+    <string name="sort_name">Nome (A-Z)</string>
+    <string name="sort_size">Tamanho (Maior)</string>
+    <string name="sort_date">Data de instalação</string>
+    <string name="extracted_success">APK extraído com sucesso!</string>
+    <string name="extraction_in_progress">Extraindo APK…</string>
+    <string name="no_apps_found">Nenhum aplicativo encontrado</string>
+    <string name="no_extracted_apks">Nenhum APK extraído ainda</string>
+</resources>
